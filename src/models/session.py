@@ -19,6 +19,7 @@ class AssessmentSession(BaseModel):
     current_difficulty: int = Field(default=3, ge=1, le=5)
     history: list[QuestionRecord] = Field(default_factory=list)
     is_complete: bool = False
+    material_summary: str = Field(default="", description="Cached study material summary")
 
     @property
     def questions_asked(self) -> int:

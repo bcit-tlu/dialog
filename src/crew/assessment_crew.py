@@ -3,7 +3,9 @@ from crewai import Crew, Task, Process
 from agents.question_generator import create_question_generator
 from agents.evaluator import create_evaluator
 from agents.difficulty_adjuster import create_difficulty_adjuster
+from agents.study_agent import create_study_agent
 from models.session import AssessmentSession
+from config.settings import settings
 
 
 class AssessmentCrew:
@@ -13,6 +15,36 @@ class AssessmentCrew:
         self.question_generator = create_question_generator()
         self.evaluator = create_evaluator()
         self.difficulty_adjuster = create_difficulty_adjuster()
+        self.study_agent = create_study_agent()
+
+    def study_materials(self) -> str:
+        """Run the study agent to read and summarise all materials.
+
+        Returns the structured knowledge summary as a string.
+        """
+        task = Task(
+            description=(
+                f"Read all files in the '{settings.materials_dir}' directory. "
+                "Produce a structured knowledge summary that includes: "
+                "key topics, core concepts, important facts, and relationships "
+                "between ideas. Return ONLY the summary, nothing else."
+            ),
+            expected_output=(
+                "A structured knowledge summary covering all key topics, "
+                "concepts, and facts from the materials."
+            ),
+            agent=self.study_agent,
+        )
+
+        crew = Crew(
+            agents=[self.study_agent],
+            tasks=[task],
+            process=Process.sequential,
+            verbose=True,
+        )
+
+        result = crew.kickoff()
+        return str(result)
 
     def generate_question(self, session: AssessmentSession, material_summary: str = "") -> str:
         """Generate a new assessment question based on current session state."""
