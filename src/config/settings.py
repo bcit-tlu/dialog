@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     subject_domain: str = "computer science"
     max_questions_per_session: int = 10
     initial_difficulty: int = 3  # 1-5 scale
+    materials_dir: str = "materials"
 
     class Config:
         env_file = ".env"
