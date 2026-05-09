@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import streamlit as st
 
 from crew.assessment_crew import AssessmentCrew
@@ -41,10 +43,17 @@ def display_chat():
 
 
 def start_assessment():
-    """Generate the first question and begin the assessment."""
+    """Run the study phase then generate the first question."""
+    session = st.session_state.session
+    crew = st.session_state.crew
+
+    # Study phase — run once and cache on the session
+    with st.spinner("Studying materials..."):
+        session.material_summary = crew.study_materials()
+
     with st.spinner("Generating question..."):
-        question_text = st.session_state.crew.generate_question(
-            st.session_state.session
+        question_text = crew.generate_question(
+            session, material_summary=session.material_summary
         )
     st.session_state.current_question = question_text
     st.session_state.messages.append(
@@ -64,7 +73,9 @@ def handle_answer(answer: str):
     # Evaluate the response
     with st.spinner("Evaluating your response..."):
         eval_text = crew.evaluate_response(
-            st.session_state.current_question, answer
+            st.session_state.current_question,
+            answer,
+            material_summary=session.material_summary,
         )
 
     st.session_state.messages.append(
@@ -107,7 +118,9 @@ def handle_answer(answer: str):
     else:
         # Generate next question
         with st.spinner("Generating next question..."):
-            question_text = crew.generate_question(session)
+            question_text = crew.generate_question(
+                session, material_summary=session.material_summary
+            )
         st.session_state.current_question = question_text
         st.session_state.messages.append(
             {"role": "assistant", "content": question_text}
@@ -123,6 +136,22 @@ with st.sidebar:
     st.metric("Questions Asked", session.questions_asked)
     st.metric("Current Difficulty", f"{session.current_difficulty}/5")
     st.metric("Average Score", f"{session.average_score:.1f}/10")
+
+    st.divider()
+    st.subheader("Materials")
+    materials_path = Path(settings.materials_dir)
+    if materials_path.is_dir():
+        material_files = [
+            f.name for f in materials_path.iterdir()
+            if f.is_file() and not f.name.startswith(".")
+        ]
+        if material_files:
+            for name in sorted(material_files):
+                st.text(f"📄 {name}")
+        else:
+            st.caption("No materials found.")
+    else:
+        st.caption("Materials folder not found.")
 
     st.divider()
     if st.button("Reset Session"):
