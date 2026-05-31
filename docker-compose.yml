@@ -1,0 +1,12 @@
+services:
+  dialog:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - document_data:/app
+    env_file:
+      - .env
+
+volumes:
+  document_data:

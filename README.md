@@ -1,85 +1,23 @@
-# DIALOG
+# Dialog
 
-Diagnostic Interactive Assessment of Learning through Open Grading
+A conversational AI agent that analyses documents and generates questions based on the provided material.
 
-A proof-of-concept prototype that uses multiple AI agents to conduct conversational knowledge assessments with students.
+Built with [LangGraph](https://github.com/langchain-ai/langgraph), [LangChain](https://github.com/langchain-ai/langchain), [FastAPI](https://fastapi.tiangolo.com/), and [Ollama Cloud](https://ollama.com/) for LLM inference.
+Documents are chunked and stored locally as JSON — no embedding model or vector database required.
 
-## Architecture
+## Agent Graph
 
 ```
-┌─────────────────────────────────────────────┐
-│              Streamlit Frontend              │
-├─────────────────────────────────────────────┤
-│              CrewAI Orchestrator             │
-├──────────┬──────────┬──────────┬────────────┤
-│  Study   │ Question │ Evaluator│ Difficulty │
-│  Agent   │ Generator│  Agent   │ Adjuster   │
-├──────────┴──────────┴──────────┴────────────┤
-│         Ollama (Local LLM)                  │
-├─────────────────────────────────────────────┤
-│         materials/ (course content)         │
-└─────────────────────────────────────────────┘
-```
-
-## Tech Stack
-
-- **LLM**: Ollama (local inference)
-- **Backend**: CrewAI 0.108 + Pydantic 2
-- **Frontend**: Streamlit
-- **Deployment**: Rancher, Flux
-- **Version Control**: GitHub
-
-## Getting Started
-
-### Prerequisites
-
-- Python 3.11 or 3.12 (CrewAI does not support Python 3.13+)
-- [Ollama](https://ollama.ai/) installed and running
-- A model pulled (e.g., `ollama pull qwen3.5:cloud`)
-
-### Installation
-
-```bash
-# Clone the repository
-git clone <repo-url>
-cd dialog
-
-# Create virtual environment (use python3.11 or python3.12)
-python3.11 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Configuration
-
-Copy the example environment variables into a `.env` file at the project root:
-
-```bash
-# .env
-ASSESS_OLLAMA_BASE_URL=http://localhost:11434
-ASSESS_OLLAMA_MODEL=qwen3.5:cloud
-ASSESS_SUBJECT_DOMAIN=computer science
-ASSESS_MAX_QUESTIONS_PER_SESSION=10
-ASSESS_INITIAL_DIFFICULTY=3
-ASSESS_MATERIALS_DIR=materials
-```
-
-### Running the App
-
-```bash
-# Make sure Ollama is running
-ollama serve
-
-# Start the Streamlit frontend
-streamlit run src/app.py
-```
-
-### Running Tests
-
-```bash
-pytest
+User message
+     │
+     ▼
+ [retrieve]  ←── JSON document store
+     │
+  [router]
+     │
+     ├── "generate questions / quiz me" ──► [generate_questions] ──► END
+     │
+     └── (anything else) ─────────────────► [analyse] ─────────────► END
 ```
 
 ## Project Structure
@@ -87,37 +25,119 @@ pytest
 ```
 dialog/
 ├── src/
-│   ├── __init__.py
-│   ├── app.py                  # Streamlit frontend
-│   ├── agents/
-│   │   ├── __init__.py
-│   │   ├── study_agent.py
-│   │   ├── question_generator.py
-│   │   ├── evaluator.py
-│   │   └── difficulty_adjuster.py
-│   ├── crew/
-│   │   ├── __init__.py
-│   │   └── assessment_crew.py  # CrewAI orchestration
-│   ├── models/
-│   │   ├── __init__.py
-│   │   ├── question.py
-│   │   ├── response.py
-│   │   └── session.py
-│   └── config/
+│   └── dialog/
 │       ├── __init__.py
-│       └── settings.py
-├── tests/
-│   ├── __init__.py
-│   ├── test_agents.py
-│   └── test_models.py
-├── materials/              # Drop course content here
-│   └── sample.md
-├── docs/
-│   └── design.md
-├── conftest.py             # Adds src/ to sys.path for pytest
-├── requirements.txt
-├── proposal.md
-├── README.md
-├── LICENSE
-└── .gitignore
+│       ├── config.py          # Settings loaded from .env
+│       ├── vectorstore.py     # Document ingestion & retrieval (ChromaDB)
+│       ├── graph.py           # LangGraph agent (nodes + routing)
+│       └── api.py             # FastAPI app (/health, /ingest, /chat)
+├── run_api.py                 # Start the API server
+├── ingest_docs.py             # CLI: load documents into the vector store
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
+├── .env.example
+└── README.md
 ```
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+# with uv (recommended)
+uv sync
+
+# or with pip
+pip install -e .
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+# set OLLAMA_API_KEY — get yours at https://ollama.com/settings/keys
+```
+
+### 3. Ingest documents
+
+```bash
+python ingest_docs.py path/to/document.pdf path/to/notes.txt
+```
+
+### 4. Start the API
+
+```bash
+python run_api.py
+```
+
+API available at `http://localhost:8000` — interactive docs at `http://localhost:8000/docs`.
+
+## API Reference
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/ingest` | Upload and ingest a document (PDF or TXT) |
+| `POST` | `/chat` | Send a message to the agent |
+
+### Chat — analyse a document
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What are the main topics covered in the document?"}'
+```
+
+### Chat — generate questions
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Generate questions about the material"}'
+```
+
+### Ingest a file via API
+
+```bash
+curl -X POST http://localhost:8000/ingest \
+  -F "file=@path/to/document.pdf"
+```
+
+## Running with Docker
+
+### 1. Configure `.env`
+
+```bash
+cp .env.example .env
+# set OLLAMA_API_KEY
+```
+
+### 2. Start the app
+
+```bash
+docker compose up --build -d
+```
+
+Single container — all inference is handled by Ollama Cloud. No local model server required.
+
+### 3. Ingest and chat
+
+```bash
+curl -X POST http://localhost:8000/ingest -F "file=@doc.pdf"
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What are the main topics?"}'
+```
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_API_KEY` | — | **Required.** API key from [ollama.com/settings/keys](https://ollama.com/settings/keys) |
+| `OLLAMA_BASE_URL` | `https://ollama.com` | Ollama Cloud endpoint |
+| `OLLAMA_MODEL` | `gemma4:31b-cloud` | Chat model |
+| `DOCUMENT_STORE_PATH` | `./document_store.json` | Where ingested document chunks are stored |
+| `CHUNK_SIZE` | `1000` | Document chunk size in characters |
+| `CHUNK_OVERLAP` | `200` | Overlap between chunks |
+| `RETRIEVAL_K` | `4` | Number of chunks passed to the LLM per query |
