@@ -26,7 +26,8 @@ def _llm() -> ChatOllama:
 
 
 def retrieve_node(state: AgentState) -> dict:
-    context = get_context(k=settings.retrieval_k)
+    query = state["messages"][-1].content
+    context = get_context(query=query, k=settings.retrieval_k)
     return {"context": context}
 
 

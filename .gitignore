@@ -16,6 +16,11 @@ env/
 
 # Vector store data
 chroma_db/
+document_store.json
+
+# Node / Frontend
+node_modules/
+.next/
 
 # IDE / OS
 .DS_Store

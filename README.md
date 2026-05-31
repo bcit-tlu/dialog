@@ -2,8 +2,22 @@
 
 A conversational AI agent that analyses documents and generates questions based on the provided material.
 
-Built with [LangGraph](https://github.com/langchain-ai/langgraph), [LangChain](https://github.com/langchain-ai/langchain), [FastAPI](https://fastapi.tiangolo.com/), and [Ollama Cloud](https://ollama.com/) for LLM inference.
-Documents are chunked and stored locally as JSON — no embedding model or vector database required.
+Built with [LangGraph](https://github.com/langchain-ai/langgraph), [LangChain](https://github.com/langchain-ai/langchain), [FastAPI](https://fastapi.tiangolo.com/), [ChromaDB](https://www.trychroma.com/), and [Ollama Cloud](https://ollama.com/) for LLM inference. Features a Next.js chat frontend with streaming responses.
+
+## Architecture
+
+```
+User ──► Frontend (3000) ──► API (8000) ──► Ollama (11434)
+                                        └──► ChromaDB (8100)
+```
+
+| Service       | Role                                  | Port  |
+|---------------|---------------------------------------|-------|
+| **ollama**    | LLM inference                         | 11434 |
+| **chromadb**  | Vector store (shared by api & ingest) | 8100  |
+| **api**       | FastAPI backend (LangGraph agent)     | 8000  |
+| **frontend**  | Next.js chat UI                       | 3000  |
+| **ingestion** | Doc processing worker (on-demand)     | —     |
 
 ## Agent Graph
 
@@ -11,7 +25,7 @@ Documents are chunked and stored locally as JSON — no embedding model or vecto
 User message
      │
      ▼
- [retrieve]  ←── JSON document store
+ [retrieve]  ←── ChromaDB vector store
      │
   [router]
      │
@@ -24,54 +38,66 @@ User message
 
 ```
 dialog/
-├── src/
-│   └── dialog/
-│       ├── __init__.py
-│       ├── config.py          # Settings loaded from .env
-│       ├── vectorstore.py     # Document ingestion & retrieval (ChromaDB)
-│       ├── graph.py           # LangGraph agent (nodes + routing)
-│       └── api.py             # FastAPI app (/health, /ingest, /chat)
-├── run_api.py                 # Start the API server
-├── ingest_docs.py             # CLI: load documents into the vector store
-├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml
 ├── .env.example
+├── docs/                          # Source documents for ingestion
+├── services/
+│   ├── api/
+│   │   ├── Dockerfile
+│   │   ├── pyproject.toml
+│   │   ├── uv.lock
+│   │   ├── run_api.py
+│   │   ├── ingest_docs.py
+│   │   └── src/dialog/
+│   │       ├── api.py             # FastAPI (/health, /ingest, /chat, /chat/stream)
+│   │       ├── config.py          # Settings loaded from .env
+│   │       ├── graph.py           # LangGraph agent (nodes + routing)
+│   │       └── vectorstore.py     # ChromaDB ingestion & retrieval
+│   └── frontend/
+│       ├── Dockerfile
+│       ├── package.json
+│       └── src/app/               # Next.js App Router
 └── README.md
 ```
 
-## Setup
+## Getting Started
 
-### 1. Install dependencies
-
-```bash
-# with uv (recommended)
-uv sync
-
-# or with pip
-pip install -e .
-```
-
-### 2. Configure environment
+### 1. Configure environment
 
 ```bash
 cp .env.example .env
 # set OLLAMA_API_KEY — get yours at https://ollama.com/settings/keys
 ```
 
+### 2. Start all services
+
+```bash
+docker compose up --build -d
+```
+
+This starts Ollama, ChromaDB, the API, and the frontend.
+
+- **Frontend:** http://localhost:3000
+- **API docs:** http://localhost:8000/docs
+- **ChromaDB:** http://localhost:8100
+
 ### 3. Ingest documents
 
-```bash
-python ingest_docs.py path/to/document.pdf path/to/notes.txt
-```
-
-### 4. Start the API
+Place documents in the `docs/` directory, then run the ingestion worker:
 
 ```bash
-python run_api.py
+docker compose run ingestion /app/docs/your_document.pdf
 ```
 
-API available at `http://localhost:8000` — interactive docs at `http://localhost:8000/docs`.
+### 4. Chat
+
+Open http://localhost:3000 and start chatting, or use the API directly:
+
+```bash
+curl -X POST http://localhost:8000/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What are the main topics covered in the document?"}'
+```
 
 ## API Reference
 
@@ -79,7 +105,8 @@ API available at `http://localhost:8000` — interactive docs at `http://localho
 |--------|------|-------------|
 | `GET` | `/health` | Health check |
 | `POST` | `/ingest` | Upload and ingest a document (PDF or TXT) |
-| `POST` | `/chat` | Send a message to the agent |
+| `POST` | `/chat` | Send a message to the agent (JSON response) |
+| `POST` | `/chat/stream` | Send a message with streaming SSE response |
 
 ### Chat — analyse a document
 
@@ -97,6 +124,14 @@ curl -X POST http://localhost:8000/chat \
   -d '{"message": "Generate questions about the material"}'
 ```
 
+### Chat — streaming
+
+```bash
+curl -N -X POST http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Summarise the document"}'
+```
+
 ### Ingest a file via API
 
 ```bash
@@ -104,30 +139,23 @@ curl -X POST http://localhost:8000/ingest \
   -F "file=@path/to/document.pdf"
 ```
 
-## Running with Docker
+## Local Development
 
-### 1. Configure `.env`
+### API service
 
 ```bash
-cp .env.example .env
-# set OLLAMA_API_KEY
+cd services/api
+uv sync
+cp ../../.env .env
+uv run python run_api.py
 ```
 
-### 2. Start the app
+### Frontend
 
 ```bash
-docker compose up --build -d
-```
-
-Single container — all inference is handled by Ollama Cloud. No local model server required.
-
-### 3. Ingest and chat
-
-```bash
-curl -X POST http://localhost:8000/ingest -F "file=@doc.pdf"
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What are the main topics?"}'
+cd services/frontend
+npm install
+npm run dev
 ```
 
 ## Environment Variables
@@ -137,7 +165,8 @@ curl -X POST http://localhost:8000/chat \
 | `OLLAMA_API_KEY` | — | **Required.** API key from [ollama.com/settings/keys](https://ollama.com/settings/keys) |
 | `OLLAMA_BASE_URL` | `https://ollama.com` | Ollama Cloud endpoint |
 | `OLLAMA_MODEL` | `gemma4:31b-cloud` | Chat model |
-| `DOCUMENT_STORE_PATH` | `./document_store.json` | Where ingested document chunks are stored |
+| `CHROMA_HOST` | `localhost` | ChromaDB hostname |
+| `CHROMA_PORT` | `8000` | ChromaDB port |
 | `CHUNK_SIZE` | `1000` | Document chunk size in characters |
 | `CHUNK_OVERLAP` | `200` | Overlap between chunks |
 | `RETRIEVAL_K` | `4` | Number of chunks passed to the LLM per query |

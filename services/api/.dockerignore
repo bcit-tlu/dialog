@@ -3,5 +3,4 @@ __pycache__/
 *.py[cod]
 .git/
 .DS_Store
-chroma_db/
 .env

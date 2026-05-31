@@ -1,7 +1,10 @@
+import json
 import os
 import tempfile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel
 
@@ -9,6 +12,14 @@ from .graph import agent
 from .vectorstore import ingest_file
 
 app = FastAPI(title="Dialog — Document Analysis Agent", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ChatRequest(BaseModel):
@@ -54,4 +65,31 @@ async def chat(request: ChatRequest):
     return ChatResponse(
         answer=last_message.content,
         questions=state.get("questions", []),
+    )
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    async def event_generator():
+        async for event in agent.astream_events(
+            {
+                "messages": [HumanMessage(content=request.message)],
+                "context": "",
+                "questions": [],
+            },
+            version="v2",
+        ):
+            if event["event"] == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                if chunk.content:
+                    yield f"data: {json.dumps({'token': chunk.content})}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
     )
