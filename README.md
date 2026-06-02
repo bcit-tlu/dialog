@@ -1,6 +1,8 @@
 # Dialog
 
-A conversational AI agent that analyses documents and generates questions based on the provided material.
+Diagnostic Interactive Assessment of Learning through Open Grading
+
+A proof-of-concept prototype that uses multiple AI agents to conduct conversational knowledge assessments with students.
 
 Built with [LangGraph](https://github.com/langchain-ai/langgraph), [LangChain](https://github.com/langchain-ai/langchain), [FastAPI](https://fastapi.tiangolo.com/), [ChromaDB](https://www.trychroma.com/), and [Ollama Cloud](https://ollama.com/) for LLM inference. Features a Next.js chat frontend with streaming responses.
 
