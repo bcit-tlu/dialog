@@ -14,13 +14,11 @@ env/
 # Environment — never commit secrets
 .env
 
-# Vector store data
-chroma_db/
-document_store.json
+# uv
+uv.lock
 
-# Node / Frontend
-node_modules/
-.next/
+# Pipeline output
+output/
 
 # IDE / OS
 .DS_Store
