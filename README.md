@@ -1,9 +1,5 @@
-# Dialog — Medical Knowledge Engineering Pipeline
+# Dialog — Diagnostic Interactive Assessment of Learning through Open Grading
 
-Transform raw nursing course material into categorized knowledge chunks and
-corresponding test questions using a LangGraph pipeline.
-
-See [`implementation_plan.md`](implementation_plan.md) for the full strategy.
 
 ## Quick Start
 
@@ -45,32 +41,8 @@ uv run pytest tests/ -v
 
 ## Project Structure
 
-```
-dialog/
-├── implementation_plan.md        # Strategy document
-├── docker-compose.yml
-├── docs/                         # Sample course material
-│   └── nursing_sepsis_learning_module.pdf
-└── services/
-    └── processor/                # LangGraph pipeline service
-        ├── Dockerfile
-        ├── pyproject.toml
-        ├── run_api.py
-        ├── src/processor/
-        │   ├── config.py         # Settings (env vars)
-        │   ├── state.py          # AgentState TypedDict
-        │   ├── llm.py            # LLM factory + mock
-        │   ├── graph.py          # LangGraph wiring
-        │   ├── api.py            # FastAPI endpoints
-        │   └── nodes/
-        │       ├── parse.py      # Node 0: PDF → text
-        │       ├── classify.py   # Node 1: Department classifier
-        │       ├── chunk.py      # Node 2: Semantic chunker
-        │       ├── questions.py  # Node 3: Question generator
-        │       └── audit.py      # Node 4: Quality auditor
-        └── tests/
-            └── test_graph_mock.py
-```
+TBD 
+
 
 ## Environment Variables
 
