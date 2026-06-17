@@ -14,4 +14,4 @@ RUN uv sync --no-dev
 
 EXPOSE 8000
 
-CMD ["uv", "run", "python", "run_api.py"]
+CMD ["uv", "run", "python", "main.py", "api"]

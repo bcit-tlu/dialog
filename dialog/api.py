@@ -1,4 +1,4 @@
-"""FastAPI application — endpoints for the course processor pipeline."""
+"""FastAPI application — thin wrapper over CourseProcessorGraph."""
 
 from __future__ import annotations
 
@@ -9,18 +9,21 @@ from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
 
-from processor.config import settings
-from processor.graph import compile_graph
+from dialog.default_config import DEFAULT_CONFIG
+from dialog.graph import CourseProcessorGraph
 
 app = FastAPI(
     title="Course Processor",
     version="0.1.0",
 )
 
+# Instantiate the graph once at startup
+_graph = CourseProcessorGraph(config=DEFAULT_CONFIG)
+
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "mock_llm": settings.mock_llm}
+    return {"status": "ok", "mock_llm": DEFAULT_CONFIG.get("mock_llm", False)}
 
 
 @app.post("/process")
@@ -37,8 +40,7 @@ async def process_document(file: UploadFile = File(...)):
         tmp_path = tmp.name
 
     try:
-        graph = compile_graph()
-        result = graph.invoke({"source_path": tmp_path})
+        result = _graph.process(tmp_path)
     finally:
         os.unlink(tmp_path)
 

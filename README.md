@@ -1,5 +1,8 @@
 # Dialog — Diagnostic Interactive Assessment of Learning through Open Grading
 
+Emergency Nursing Course Processor — transforms raw nursing course material
+(PDF/text) into categorized knowledge chunks and test questions via a
+LangGraph pipeline.
 
 ## Quick Start
 
@@ -26,23 +29,58 @@ MOCK_LLM=true docker compose up --build
 ### Local Development
 
 ```bash
-cd services/processor
 uv sync
-MOCK_LLM=true uv run python run_api.py
+MOCK_LLM=true uv run python main.py api
+```
+
+Or process a single file:
+
+```bash
+uv run python main.py docs/nursing_sepsis_learning_module.pdf
 ```
 
 ### Tests
 
 ```bash
-cd services/processor
 uv sync --all-extras
 uv run pytest tests/ -v
 ```
 
 ## Project Structure
 
-TBD 
-
+```
+dialog/                          # repo root
+├── pyproject.toml               # single project file
+├── main.py                      # CLI entry point (api / file processing)
+├── Dockerfile
+├── docker-compose.yml
+├── docs/                        # sample course material
+├── tests/                       # all tests
+│
+└── dialog/                      # installable package
+    ├── default_config.py        # config dict + env-var overlay
+    ├── api.py                   # FastAPI endpoints
+    ├── agents/                  # agent factories grouped by role
+    │   ├── schemas.py           # Pydantic structured-output models
+    │   ├── chunker/             # create_semantic_chunker(llm)
+    │   ├── questioner/          # create_question_generator(llm)
+    │   ├── auditor/             # create_quality_auditor(llm)
+    │   ├── classifier/          # create_dept_classifier(llm) (deferred)
+    │   └── utils/               # AgentState, shared helpers
+    ├── graph/                   # graph orchestration (no agent logic)
+    │   ├── processor_graph.py   # CourseProcessorGraph orchestrator
+    │   ├── setup.py             # node/edge wiring
+    │   ├── propagation.py       # initial state creation
+    │   └── conditional_logic.py # routing (future: human-in-the-loop)
+    ├── dataflows/               # data-source abstraction
+    │   ├── pdf_parser.py        # PyMuPDF
+    │   └── text_parser.py       # plain text / markdown
+    └── llm_clients/             # LLM provider abstraction
+        ├── base_client.py       # ABC
+        ├── factory.py           # create_llm_client()
+        ├── openai_client.py     # Ollama / OpenAI compat
+        └── mock_client.py       # FakeListChatModel for testing
+```
 
 ## Environment Variables
 

@@ -31,7 +31,7 @@ class AgentState(TypedDict, total=False):
     raw_text: str             # extracted plain text / markdown
 
     # --- set by classify_dept (future) ---
-    # department: str
+    department: str
 
     # --- set by semantic_chunker ---
     knowledge_map: list[KnowledgeChunk]
