@@ -20,23 +20,11 @@ class MockClient(BaseLLMClient):
             {"topic": "Mock Topic B", "content": "This is mock knowledge chunk B."},
         ])
 
-        question_response = json.dumps([
-            {"bloom_level": "recall", "question_text": "What is mock topic?", "answer_text": "Mock answer."},
-            {"bloom_level": "application", "question_text": "How would you apply mock?", "answer_text": "Apply mock."},
-            {"bloom_level": "analysis", "question_text": "Analyze mock concept.", "answer_text": "Analysis of mock."},
-        ])
-
-        audit_response = json.dumps({"pass": True, "issues": []})
-
-        # FakeListChatModel cycles through responses in order:
-        # chunk (1) → questions per chunk (2) → audit per chunk (2)
+        # FakeListChatModel cycles through responses in order.
+        # Current pipeline: extract (no LLM) → chunk (1 LLM call)
         return FakeListChatModel(
             responses=[
                 chunk_response,
-                question_response,
-                question_response,
-                audit_response,
-                audit_response,
             ]
         )
 

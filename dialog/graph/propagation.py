@@ -14,8 +14,5 @@ class Propagator:
             "source_path": source_path,
             "raw_text": "",
             "knowledge_map": [],
-            "question_bank": [],
-            "audit_flags": [],
-            "review_status": "pending",
             "error": None,
         }

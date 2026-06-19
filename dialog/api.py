@@ -46,7 +46,4 @@ async def process_document(file: UploadFile = File(...)):
 
     return JSONResponse(content={
         "chunks": result.get("knowledge_map", []),
-        "questions": result.get("question_bank", []),
-        "audit_flags": result.get("audit_flags", []),
-        "review_status": result.get("review_status"),
     })

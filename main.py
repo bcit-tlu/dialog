@@ -24,12 +24,9 @@ def run_pipeline(source_path: str):
     result = graph.process(source_path)
 
     print(f"\n--- Results ---")
-    print(f"Chunks:    {len(result.get('knowledge_map', []))}")
-    print(f"Questions: {len(result.get('question_bank', []))}")
-    print(f"Audit:     {result.get('review_status')}")
-    if result.get("audit_flags"):
-        for flag in result["audit_flags"]:
-            print(f"  ⚠ [{flag['issue']}] {flag['detail']}")
+    print(f"Chunks: {len(result.get('knowledge_map', []))}")
+    for chunk in result.get("knowledge_map", []):
+        print(f"  [{chunk['chunk_id']}] {chunk['topic']}")
 
 
 if __name__ == "__main__":

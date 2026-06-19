@@ -8,11 +8,9 @@ from langgraph.graph import StateGraph, END
 
 from dialog.agents.utils.agent_states import AgentState
 from dialog.agents import (
+    create_content_extractor,
     create_semantic_chunker,
-    create_question_generator,
-    create_quality_auditor,
 )
-from dialog.dataflows import parse_document
 
 
 class GraphSetup:
@@ -25,26 +23,21 @@ class GraphSetup:
     def setup_graph(self) -> StateGraph:
         """Build and return the workflow (uncompiled).
 
-        Pipeline: parse → chunk → questions → audit → END
+        Pipeline: extract → chunk → END
         """
         workflow = StateGraph(AgentState)
 
         # Create agent nodes via factories
+        extractor_node = create_content_extractor()
         chunker_node = create_semantic_chunker(self.llm)
-        question_node = create_question_generator(self.llm)
-        auditor_node = create_quality_auditor(self.llm)
 
         # Register nodes
-        workflow.add_node("parse", parse_document)
+        workflow.add_node("extract", extractor_node)
         workflow.add_node("chunk", chunker_node)
-        workflow.add_node("questions", question_node)
-        workflow.add_node("audit", auditor_node)
 
         # Wire edges
-        workflow.set_entry_point("parse")
-        workflow.add_edge("parse", "chunk")
-        workflow.add_edge("chunk", "questions")
-        workflow.add_edge("questions", "audit")
-        workflow.add_edge("audit", END)
+        workflow.set_entry_point("extract")
+        workflow.add_edge("extract", "chunk")
+        workflow.add_edge("chunk", END)
 
         return workflow
