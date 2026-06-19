@@ -1,6 +1,6 @@
 # How Dialog Works
 
-A step-by-step explanation of how the Course Processor pipeline transforms raw nursing course material into structured knowledge chunks and assessment questions.
+A step-by-step explanation of how the Course Processor ingestion pipeline transforms raw course material into structured knowledge chunks.
 
 ---
 
@@ -10,37 +10,36 @@ A step-by-step explanation of how the Course Processor pipeline transforms raw n
 PDF / Text file
       │
       ▼
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│    Parse     │ ──▶ │    Chunk    │ ──▶ │  Questions   │ ──▶ │    Audit    │
-│  (dataflows) │     │   (agent)   │     │   (agent)    │     │   (agent)   │
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
-      │                    │                    │                    │
-  raw_text          knowledge_map         question_bank        audit_flags
-                                                              review_status
-      └────────────────────┴────────────────────┴────────────────────┘
-                                    │
-                                    ▼
-                            Structured JSON output
-                       (chunks, questions, audit flags)
+┌─────────────┐     ┌─────────────┐
+│   Extract    │ ──▶ │    Chunk    │
+│  (no LLM)   │     │   (LLM)    │
+└─────────────┘     └─────────────┘
+      │                    │
+  raw_text          knowledge_map
+      └────────────────────┘
+                │
+                ▼
+        Structured JSON output
+           (knowledge chunks)
 ```
 
-The system is a **LangGraph pipeline** — a directed graph where each node transforms the state and passes it to the next. There are no loops or branches in the current pipeline; it runs linearly from start to finish.
+The system is a **LangGraph pipeline** — a directed graph where each node transforms the state and passes it to the next. The current pipeline is linear: extract → chunk → done.
 
 ---
 
 ## Step-by-Step
 
-### Step 1: Document Parsing
+### Step 1: Content Extraction
 
 **What happens:** The uploaded file (PDF, TXT, or Markdown) is converted into plain text.
 
-**Where:** `dialog/dataflows/`
+**Where:** `dialog/agents/extractor/content_extractor.py` → delegates to `dialog/dataflows/`
 
 - PDF files are parsed with **PyMuPDF** — each page's text is extracted and joined together.
 - Text and Markdown files are read directly.
 - The result is stored as `raw_text` in the pipeline state.
 
-No LLM is involved in this step — it's pure file I/O.
+No LLM is involved — this is pure file I/O.
 
 ---
 
@@ -64,39 +63,6 @@ No LLM is involved in this step — it's pure file I/O.
 
 ---
 
-### Step 3: Question Generation
-
-**What happens:** For each knowledge chunk, the LLM generates **3 assessment questions** at different levels of Bloom's Taxonomy:
-
-| Level | Tests | Example |
-|-------|-------|---------|
-| **Recall** | Direct factual memory | "What are the three qSOFA criteria?" |
-| **Application** | Applying knowledge to a clinical scenario | "A patient presents with altered mental status and low BP — what score would you assign?" |
-| **Analysis** | Comparing, evaluating, or breaking down concepts | "Compare qSOFA with full SOFA in terms of clinical utility at triage." |
-
-**Where:** `dialog/agents/questioner/question_generator.py`
-
-- The LLM is called once per chunk.
-- Each question includes the question text, a correct answer, and its Bloom's level.
-- Results accumulate in `question_bank`.
-
----
-
-### Step 4: Quality Audit
-
-**What happens:** The LLM cross-references every generated question against its source chunk to catch problems before they reach learners.
-
-**Where:** `dialog/agents/auditor/quality_auditor.py`
-
-It checks for:
-- **Hallucinations** — the answer contains information not present in the chunk.
-- **Misclassifications** — the Bloom's level label doesn't match what the question actually tests.
-- **Coverage gaps** — key facts in the chunk aren't tested by any question.
-
-If all questions pass, `review_status` is set to `"approved"`. If any issues are found, it's set to `"needs_review"` and the specific problems are listed in `audit_flags`.
-
----
-
 ## How the Pieces Fit Together
 
 ### The Orchestrator
@@ -105,7 +71,7 @@ If all questions pass, `review_status` is set to `"approved"`. If any issues are
 
 1. Reads configuration (model, API keys, mock mode) from `default_config.py`.
 2. Creates an LLM client via the `llm_clients/` factory.
-3. Passes the LLM to each agent factory (`create_semantic_chunker(llm)`, etc.) to produce graph nodes.
+3. Passes the LLM to agent factories to produce graph nodes.
 4. Wires the nodes into a LangGraph `StateGraph` via `graph/setup.py`.
 5. Compiles the graph and exposes one method: `process(source_path) → result`.
 
@@ -131,10 +97,8 @@ The factory captures the LLM in a closure. This means:
 A single `AgentState` dictionary flows through every node. Each node reads what it needs and writes its output back:
 
 ```
-parse  → writes raw_text
-chunk  → reads raw_text,      writes knowledge_map
-questions → reads knowledge_map, writes question_bank
-audit  → reads both,          writes audit_flags + review_status
+extract → writes raw_text
+chunk   → reads raw_text, writes knowledge_map
 ```
 
 ---

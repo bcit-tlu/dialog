@@ -55,12 +55,6 @@ dialog/                          # repo root
     └── api.py                   # FastAPI endpoints (thin wrapper over CourseProcessorGraph)
 ```
 
-### Design Principles (from TradingAgents)
-- **Agent factory pattern** — every agent is a `create_X(...) → node_fn` factory. The closure captures dependencies (e.g. LLM), returns partial state. Swap in a mock LLM and the factory still works.
-- **Orchestrator class** — `CourseProcessorGraph` is the single public API. It owns LLM creation, config, graph compilation, and the `process()` entry point. Consumers never touch LangGraph directly.
-- **Separation of graph wiring from agent logic** — `graph/` only does node registration and edge connections; all prompt/LLM work lives in `agents/`.
-- **Structured outputs** — Pydantic schemas in `agents/schemas.py` define what each agent returns, with `render_*()` helpers to convert back to markdown.
-- **Not all nodes need an LLM** — the extractor is pure Python; LangGraph nodes are just functions that take state and return partial state.
 
 ### State Definition
 The `AgentState` (in `agents/utils/agent_states.py`) tracks:
