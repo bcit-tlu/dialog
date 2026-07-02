@@ -1,10 +1,42 @@
 services:
-  processor:
+  api:
     build: .
+    command: ["uv", "run", "python", "main.py", "api"]
     ports:
       - "8000:8000"
     env_file: .env
     volumes:
-      - ./docs:/app/docs
+      - uploads:/app/uploads
+    depends_on:
+      - redis
+      - db
 
-volumes: {}
+  worker:
+    build: .
+    command: ["uv", "run", "python", "main.py", "worker"]
+    env_file: .env
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dialog
+      POSTGRES_USER: dialog
+      POSTGRES_PASSWORD: dialog
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  uploads:
+  pgdata:
