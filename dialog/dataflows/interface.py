@@ -6,10 +6,17 @@ a CourseModule for uniform downstream processing.
 
 from __future__ import annotations
 
+import logging
 import os
 import tempfile
 import zipfile
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+# Only extract these file types from zip archives.
+# Everything else (images, video, audio) is skipped to save disk space.
+_EXTRACTABLE_EXTENSIONS = {".html", ".htm", ".pdf"}
 
 from dialog.agents.utils.agent_states import (
     AgentState,
@@ -100,10 +107,33 @@ def _dispatch_directory(path: Path) -> CourseModule:
 
 
 def _dispatch_zip(path: Path) -> CourseModule:
-    """Unzip to temp directory and re-dispatch as directory."""
+    """Selectively extract from zip and re-dispatch as directory.
+
+    Only extracts .html and .pdf files to minimize disk usage.
+    A 2 GB D2L export with media typically shrinks to ~200 MB.
+    """
     with tempfile.TemporaryDirectory() as tmp_dir:
         with zipfile.ZipFile(str(path), "r") as zf:
-            zf.extractall(tmp_dir)
+            members = zf.namelist()
+            extracted = 0
+            skipped = 0
+
+            for member in members:
+                member_ext = Path(member).suffix.lower()
+                # Always extract directories (needed for structure)
+                if member.endswith("/"):
+                    zf.extract(member, tmp_dir)
+                    continue
+                if member_ext in _EXTRACTABLE_EXTENSIONS:
+                    zf.extract(member, tmp_dir)
+                    extracted += 1
+                else:
+                    skipped += 1
+
+            logger.info(
+                "Zip extraction: %d files extracted, %d skipped (from %s)",
+                extracted, skipped, path.name,
+            )
 
         # The zip might contain a single top-level folder or files directly
         contents = os.listdir(tmp_dir)
