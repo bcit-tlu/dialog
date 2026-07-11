@@ -54,4 +54,6 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_results_job_id'), table_name='results')
     op.drop_table('results')
     op.drop_table('jobs')
+    # Alembic autogenerate does not drop the Postgres enum type
+    sa.Enum(name='job_status').drop(op.get_bind(), checkfirst=True)
     # ### end Alembic commands ###
