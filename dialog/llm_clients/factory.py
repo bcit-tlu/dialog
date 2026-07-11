@@ -10,7 +10,7 @@ from .base_client import BaseLLMClient
 
 
 def create_llm_client(
-    provider: str = "openai",
+    provider: str = "ollama",
     model: str = "gemma4:31b-cloud",
     base_url: Optional[str] = None,
     mock: bool = False,
@@ -19,11 +19,14 @@ def create_llm_client(
     """Create an LLM client for the specified provider.
 
     Args:
-        provider: LLM provider name ("openai", "mock", etc.)
-        model: Model name / identifier
+        provider: LLM provider name ("ollama", "azure", "openai", "mock")
+        model: Model name / identifier (or Azure deployment name)
         base_url: Optional base URL for the API endpoint
         mock: If True, return a MockClient regardless of provider
-        **kwargs: Additional provider-specific arguments (api_key, temperature, ...)
+        **kwargs: Additional provider-specific arguments:
+            - api_key: API key for the provider
+            - temperature: Sampling temperature
+            - api_version: Azure OpenAI API version (azure only)
 
     Returns:
         Configured BaseLLMClient instance
@@ -37,5 +40,9 @@ def create_llm_client(
     if provider_lower in ("openai", "ollama"):
         from .openai_client import OpenAIClient
         return OpenAIClient(model, base_url, **kwargs)
+
+    if provider_lower == "azure":
+        from .azure_client import AzureOpenAIClient
+        return AzureOpenAIClient(model, base_url, **kwargs)
 
     raise ValueError(f"Unsupported LLM provider: {provider}")
