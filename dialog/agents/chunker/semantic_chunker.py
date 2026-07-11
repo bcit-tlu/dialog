@@ -27,33 +27,80 @@ Return ONLY the JSON array. No markdown fences, no explanation.
 """
 
 
+def _parse_llm_json(content: str) -> list | None:
+    """Parse the LLM's JSON response, tolerating markdown fences."""
+    text = content.strip()
+    if text.startswith("```"):
+        # Strip ```json ... ``` fences
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+    try:
+        result = json.loads(text.strip())
+        return result if isinstance(result, list) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _chunk_text(llm, text: str) -> list[KnowledgeChunk] | None:
+    """Run one chunking LLM call over a block of text."""
+    response = llm.invoke([
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": text},
+    ])
+
+    chunks_raw = _parse_llm_json(response.content)
+    if chunks_raw is None:
+        return None
+
+    return [
+        KnowledgeChunk(
+            chunk_id=str(uuid.uuid4())[:8],
+            topic=item.get("topic", "Untitled"),
+            content=item.get("content", ""),
+        )
+        for item in chunks_raw
+    ]
+
+
 def create_semantic_chunker(llm):
-    """Factory: create a semantic chunker node that captures the given LLM."""
+    """Factory: create a semantic chunker node that captures the given LLM.
+
+    Chunks page-by-page when a course_module is available (keeps each
+    LLM call within a manageable context size). Falls back to a single
+    call over raw_text for plain inputs.
+    """
 
     def semantic_chunker_node(state: AgentState) -> dict:
-        """Chunk raw_text into knowledge_map entries."""
-        raw = state.get("raw_text", "")
-
-        response = llm.invoke([
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": raw},
-        ])
-
-        try:
-            chunks_raw = json.loads(response.content.strip())
-        except json.JSONDecodeError:
-            return {"knowledge_map": [], "error": "Chunker returned invalid JSON"}
-
+        """Chunk content into knowledge_map entries."""
+        course_module = state.get("course_module")
         knowledge_map: list[KnowledgeChunk] = []
-        for item in chunks_raw:
-            knowledge_map.append(
-                KnowledgeChunk(
-                    chunk_id=str(uuid.uuid4())[:8],
-                    topic=item.get("topic", "Untitled"),
-                    content=item.get("content", ""),
-                )
-            )
+        failed_pages: list[str] = []
 
-        return {"knowledge_map": knowledge_map}
+        if course_module and course_module.get("pages"):
+            # Chunk each page separately — one LLM call per page
+            for page in course_module["pages"]:
+                if not page["text"].strip():
+                    continue
+                page_input = f"# {page['title']}\n\n{page['text']}"
+                chunks = _chunk_text(llm, page_input)
+                if chunks is None:
+                    failed_pages.append(page["title"])
+                    continue
+                knowledge_map.extend(chunks)
+        else:
+            # Fallback: single call over raw_text
+            raw = state.get("raw_text", "")
+            chunks = _chunk_text(llm, raw)
+            if chunks is None:
+                return {"knowledge_map": [], "error": "Chunker returned invalid JSON"}
+            knowledge_map = chunks
+
+        result: dict = {"knowledge_map": knowledge_map}
+        if failed_pages:
+            result["error"] = (
+                f"Chunker failed on {len(failed_pages)} page(s): "
+                + ", ".join(failed_pages[:5])
+            )
+        return result
 
     return semantic_chunker_node

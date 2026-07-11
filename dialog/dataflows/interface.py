@@ -119,6 +119,17 @@ def _dispatch_zip(path: Path) -> CourseModule:
             skipped = 0
 
             for member in members:
+                # Skip macOS metadata (__MACOSX/, ._AppleDouble, .DS_Store)
+                parts = Path(member).parts
+                filename = Path(member).name
+                if (
+                    "__MACOSX" in parts
+                    or filename.startswith("._")
+                    or filename == ".DS_Store"
+                ):
+                    skipped += 1
+                    continue
+
                 member_ext = Path(member).suffix.lower()
                 # Always extract directories (needed for structure)
                 if member.endswith("/"):
@@ -136,7 +147,7 @@ def _dispatch_zip(path: Path) -> CourseModule:
             )
 
         # The zip might contain a single top-level folder or files directly
-        contents = os.listdir(tmp_dir)
+        contents = [c for c in os.listdir(tmp_dir) if not c.startswith((".", "__MACOSX"))]
         if len(contents) == 1 and (Path(tmp_dir) / contents[0]).is_dir():
             extract_root = str(Path(tmp_dir) / contents[0])
         else:

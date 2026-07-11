@@ -94,7 +94,12 @@ def _parse_folder_name(name: str) -> tuple[str, str]:
 
 
 def _parse_toc(toc_path: Path) -> list[tuple[str, str]]:
-    """Parse Table of Contents.html and return ordered (title, href) pairs."""
+    """Parse Table of Contents.html and return ordered (title, href) pairs.
+
+    D2L ToC links are often empty anchors with the title as a sibling
+    text node: <p><a href="..."></a>1. Module Overview</p>
+    Falls back to parent text, then filename, when link text is empty.
+    """
     with open(toc_path, "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -103,9 +108,23 @@ def _parse_toc(toc_path: Path) -> list[tuple[str, str]]:
 
     for link in soup.find_all("a"):
         href = link.get("href", "")
+        if not href:
+            continue
+
+        # 1. Try the link's own text
         title = link.get_text(strip=True)
-        if href and title:
-            entries.append((title, href))
+
+        # 2. Fall back to the parent element's text (D2L pattern)
+        if not title and link.parent is not None:
+            title = link.parent.get_text(strip=True)
+
+        # 3. Fall back to a cleaned-up filename
+        if not title:
+            stem = Path(href).stem
+            # Strip leading page number prefix like "01_"
+            title = re.sub(r"^\d+_", "", stem).replace("-", " ")
+
+        entries.append((title, href))
 
     return entries
 

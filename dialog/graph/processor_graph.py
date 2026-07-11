@@ -36,13 +36,25 @@ class CourseProcessorGraph:
         self.config = config or DEFAULT_CONFIG
 
         # Initialize LLM via the client abstraction
-        client = create_llm_client(
-            provider=self.config.get("llm_provider", "openai"),
-            model=self.config["ollama_model"],
-            base_url=self.config.get("ollama_base_url"),
-            mock=self.config.get("mock_llm", False),
-            api_key=self.config.get("ollama_api_key", ""),
-        )
+        provider = self.config.get("llm_provider", "ollama")
+        mock = self.config.get("mock_llm", False)
+
+        if provider == "azure" and not mock:
+            client = create_llm_client(
+                provider="azure",
+                model=self.config["azure_openai_deployment"],
+                base_url=self.config.get("azure_openai_endpoint"),
+                api_key=self.config.get("azure_openai_api_key", ""),
+                api_version=self.config.get("azure_openai_api_version", "2024-06-01"),
+            )
+        else:
+            client = create_llm_client(
+                provider=provider,
+                model=self.config.get("ollama_model", "gemma4:31b-cloud"),
+                base_url=self.config.get("ollama_base_url"),
+                mock=mock,
+                api_key=self.config.get("ollama_api_key", ""),
+            )
         self.llm = client.get_llm()
 
         # Build the graph
