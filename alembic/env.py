@@ -12,8 +12,9 @@ from dialog.db.session import get_database_url
 # access to the values within the .ini file in use.
 config = context.config
 
-# Resolve the database URL from app config / env (DATABASE_URL)
-config.set_main_option("sqlalchemy.url", get_database_url())
+# Resolve the database URL from app config / env (DATABASE_URL).
+# Escape % for ConfigParser interpolation (e.g. passwords with %).
+config.set_main_option("sqlalchemy.url", get_database_url().replace("%", "%%"))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
