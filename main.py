@@ -20,21 +20,9 @@ def run_api():
 
 def run_worker():
     """Start the background worker that processes jobs from Redis."""
-    import logging
-    import time
+    from dialog.worker import run
 
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger("dialog.worker")
-    logger.info("Worker started — waiting for jobs...")
-
-    # Placeholder: poll Redis for jobs
-    # Full implementation will come with the job queue integration
-    try:
-        while True:
-            # TODO: pop job_id from Redis, load job from DB, run pipeline
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Worker shutting down.")
+    run()
 
 
 def run_gateway():

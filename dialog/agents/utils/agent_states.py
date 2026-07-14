@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 
 
 class ContentPage(TypedDict):
@@ -24,6 +24,8 @@ class KnowledgeChunk(TypedDict):
     chunk_id: str
     topic: str
     content: str
+    source_page: NotRequired[str]      # title of the page the chunk came from
+    page_number: NotRequired[int]
 
 
 class AgentState(TypedDict, total=False):

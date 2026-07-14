@@ -86,6 +86,9 @@ def create_semantic_chunker(llm):
                 if chunks is None:
                     failed_pages.append(page["title"])
                     continue
+                for chunk in chunks:
+                    chunk["source_page"] = page["title"]
+                    chunk["page_number"] = page["page_number"]
                 knowledge_map.extend(chunks)
         else:
             # Fallback: single call over raw_text
