@@ -64,20 +64,25 @@ class CourseProcessorGraph:
         workflow = self.graph_setup.setup_graph()
         self.graph = workflow.compile()
 
-    def process(self, source_path: str) -> Dict[str, Any]:
+    def process(
+        self, source_path: str, learning_objectives: str = ""
+    ) -> Dict[str, Any]:
         """Process a document through the full pipeline.
 
         This is the single public entry point — upload a file path,
         get back structured results.
 
         Args:
-            source_path: Path to the PDF, TXT, or MD file.
+            source_path: Path to the uploaded file or directory.
+            learning_objectives: Instructor-provided objectives string.
 
         Returns:
             Final graph state dict with knowledge_map, question_bank,
             audit_flags, and review_status.
         """
-        initial_state = self.propagator.create_initial_state(source_path)
+        initial_state = self.propagator.create_initial_state(
+            source_path, learning_objectives
+        )
 
         if self.debug:
             for chunk in self.graph.stream(initial_state, stream_mode="values"):
