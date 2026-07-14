@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 
 from dialog.agents.utils.agent_states import AgentState, KnowledgeChunk
+from dialog.agents.utils.json_parsing import parse_llm_json
 
 SYSTEM_PROMPT = """\
 You are a medical content analyst. Given the full text of a course module,
@@ -27,20 +27,6 @@ Return ONLY the JSON array. No markdown fences, no explanation.
 """
 
 
-def _parse_llm_json(content: str) -> list | None:
-    """Parse the LLM's JSON response, tolerating markdown fences."""
-    text = content.strip()
-    if text.startswith("```"):
-        # Strip ```json ... ``` fences
-        lines = text.split("\n")
-        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
-    try:
-        result = json.loads(text.strip())
-        return result if isinstance(result, list) else None
-    except json.JSONDecodeError:
-        return None
-
-
 def _chunk_text(llm, text: str) -> list[KnowledgeChunk] | None:
     """Run one chunking LLM call over a block of text."""
     response = llm.invoke([
@@ -48,7 +34,7 @@ def _chunk_text(llm, text: str) -> list[KnowledgeChunk] | None:
         {"role": "user", "content": text},
     ])
 
-    chunks_raw = _parse_llm_json(response.content)
+    chunks_raw = parse_llm_json(response.content)
     if chunks_raw is None:
         return None
 
