@@ -43,3 +43,16 @@ def test_chunker_produces_knowledge_map():
         assert "chunk_id" in chunk
         assert "topic" in chunk
         assert "content" in chunk
+
+
+def test_classifier_populates_blooms_levels():
+    """Every chunk should get a Bloom's level and rationale."""
+    result = _run_pipeline("Sepsis is a life-threatening condition caused by infection.")
+
+    valid_levels = {"Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"}
+    assert len(result["knowledge_map"]) > 0
+    for chunk in result["knowledge_map"]:
+        assert chunk.get("blooms_level") in valid_levels, (
+            f"Chunk {chunk['chunk_id']} has invalid level: {chunk.get('blooms_level')}"
+        )
+        assert chunk.get("blooms_rationale"), "Rationale should be populated"

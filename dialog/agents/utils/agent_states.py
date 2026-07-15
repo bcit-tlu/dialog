@@ -26,6 +26,8 @@ class KnowledgeChunk(TypedDict):
     content: str
     source_page: NotRequired[str]      # title of the page the chunk came from
     page_number: NotRequired[int]
+    blooms_level: NotRequired[str]     # Bloom's taxonomy level (set by classifier)
+    blooms_rationale: NotRequired[str]
 
 
 class AgentState(TypedDict, total=False):
