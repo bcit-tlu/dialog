@@ -14,9 +14,12 @@ services:
       S3_BUCKET: uploads
       LLM_GATEWAY_URL: http://llm-gateway:8100
     depends_on:
-      - redis
-      - db
-      - minio
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
 
   worker:
     build: .
@@ -31,9 +34,21 @@ services:
       S3_BUCKET: uploads
       LLM_GATEWAY_URL: http://llm-gateway:8100
     depends_on:
-      - redis
-      - db
-      - minio
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    build: .
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql://dialog:dialog@db:5432/dialog
+    depends_on:
+      db:
+        condition: service_healthy
 
   llm-gateway:
     build:
@@ -61,6 +76,11 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dialog"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
   minio:
     image: minio/minio:latest
