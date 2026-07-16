@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/api/client.ts","./src/components/ui/button.tsx","./src/components/ui/card.tsx","./src/components/ui/textarea.tsx","./src/lib/utils.ts","./src/pages/jobpage.tsx","./src/pages/uploadpage.tsx"],"version":"5.9.3"}
