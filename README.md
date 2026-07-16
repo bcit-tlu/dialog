@@ -11,7 +11,16 @@ cp .env.example .env          # fill in your Ollama Cloud key
 docker compose up --build
 ```
 
-The processor API will be available at **http://localhost:8000**.
+This brings up the whole stack. Once it's running:
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Web UI** | **http://localhost:3000** | Upload modules, watch processing, browse results |
+| API | http://localhost:8000 | FastAPI job API |
+| MinIO console | http://localhost:9001 | Object storage (uploads) |
+
+The database schema is migrated automatically by the one-shot `migrate`
+service before the `api`/`worker` start.
 
 ### Mock Mode (no LLM tokens)
 
@@ -21,10 +30,12 @@ MOCK_LLM=true docker compose up --build
 
 ### Endpoints
 
-| Method | Path       | Description                              |
-|--------|------------|------------------------------------------|
-| GET    | `/health`  | Health check                             |
-| POST   | `/process` | Upload a PDF/TXT and run the pipeline    |
+| Method | Path                  | Description                                   |
+|--------|-----------------------|-----------------------------------------------|
+| GET    | `/health`             | Health check                                  |
+| POST   | `/jobs`               | Upload a module (zip/pdf/docx/txt/md), queue it |
+| GET    | `/jobs/{id}`          | Job status (`queued`/`processing`/`completed`/`failed`) |
+| GET    | `/jobs/{id}/results`  | Learning elements for a completed job         |
 
 ### Local Development
 
@@ -38,6 +49,9 @@ Or process a single file:
 ```bash
 uv run python main.py docs/nursing_sepsis_learning_module.pdf
 ```
+
+For frontend development against the running API (hot reload on
+http://localhost:5173), see `frontend/README.md`.
 
 ### Tests
 
