@@ -41,6 +41,7 @@ _ENV_OVERRIDES = {
     # API server
     "API_HOST":           "api_host",
     "API_PORT":           "api_port",
+    "DEV_RELOAD":         "dev_reload",
 }
 
 
@@ -102,4 +103,7 @@ DEFAULT_CONFIG = _apply_env_overrides({
     # API server
     "api_host": "0.0.0.0",
     "api_port": 8000,
+
+    # Enable uvicorn auto-reload (dev only). Must stay False in production/containers.
+    "dev_reload": False,
 })
