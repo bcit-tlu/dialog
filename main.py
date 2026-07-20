@@ -14,7 +14,7 @@ def run_api():
         "dialog.api:app",
         host=DEFAULT_CONFIG["api_host"],
         port=DEFAULT_CONFIG["api_port"],
-        reload=True,
+        reload=DEFAULT_CONFIG["dev_reload"],
     )
 
 
@@ -35,7 +35,7 @@ def run_gateway():
         "dialog.gateway:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=DEFAULT_CONFIG["dev_reload"],
     )
 
 
