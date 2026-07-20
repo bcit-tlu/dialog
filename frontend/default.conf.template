@@ -9,9 +9,21 @@ server {
     client_max_body_size 5g;
 
     # Proxy API calls to the FastAPI service. The /api prefix is stripped
-    # so /api/jobs -> http://api:8000/jobs (matches the Vite dev proxy).
+    # so /api/jobs -> ${BACKEND_URL}/jobs (matches the Vite dev proxy).
+    #
+    # BACKEND_URL is injected at container start by the nginx image's
+    # envsubst entrypoint (docker-entrypoint.d/20-envsubst-on-templates.sh).
+    # A `resolver` + variable `proxy_pass` makes nginx re-resolve the
+    # backend Service DNS at request time, so it survives backend pod
+    # restarts / re-scheduling in Kubernetes.
     location /api/ {
-        proxy_pass http://api:8000/;
+        resolver ${NGINX_DNS_RESOLVER} valid=10s;
+        set $backend "${BACKEND_URL}";
+
+        # Strip the /api prefix before proxying (backend serves at root).
+        rewrite ^/api/(.*)$ /$1 break;
+        proxy_pass $backend;
+
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
