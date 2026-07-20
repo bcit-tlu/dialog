@@ -1,0 +1,112 @@
+# Default values for the dialog-backend chart.
+# One image backs three roles (api / worker / gateway) — the role is
+# selected by each Deployment's container command.
+
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/bcit-tlu/dialog/dialog-api
+  # Defaults to .Chart.AppVersion; pin to a released tag for reproducible deploys.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+
+# ── LLM provider & gateway (Step 8) ─────────────────────────
+# provider: "ollama" (now), "azure" (later), "mock" (testing).
+# Credentials are injected only into the gateway pod.
+llm:
+  provider: ollama
+  gatewayUrl: ""            # defaults to the in-cluster gateway service
+  ollama:
+    baseUrl: "https://ollama.com"
+  azure:
+    endpoint: ""
+    apiVersion: "2024-06-01"
+    deployment: ""
+    embeddingDeployment: ""
+  # Name of a pre-existing Secret holding LLM credentials. When set, the
+  # chart references it instead of creating its own (Vault-ready).
+  existingSecret: ""
+
+# ── LLM gateway deployment (Step 9) ─────────────────────────
+gateway:
+  enabled: true
+  port: 8100
+  resources: {}
+
+# ── Background worker (Step 9) ──────────────────────────────
+worker:
+  enabled: true
+  replicaCount: 1
+  resources: {}
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# ── PostgreSQL via CloudNative-PG (Step 5) ──────────────────
+postgres:
+  enabled: false
+  # Used when postgres.enabled=false (external DB).
+  uri: "postgresql://dialog:dialog@localhost:5432/dialog"
+  cluster:
+    instances: 1
+    image: ghcr.io/cloudnative-pg/postgresql:16-minimal-trixie
+  auth:
+    database: dialog
+    username: dialog
+    password: dialog
+  pgvector:
+    image: ghcr.io/cloudnative-pg/pgvector:0.8.2-16-trixie
+  persistence:
+    storageClass: ""
+    size: 5Gi
+
+# ── Redis (Step 6) ──────────────────────────────────────────
+redis:
+  enabled: false
+  # Used when redis.enabled=false (external Redis).
+  url: "redis://dialog-redis:6379/0"
+  image: redis:7-alpine
+  persistence:
+    enabled: false
+    size: 1Gi
+    storageClass: ""
+
+# ── MinIO object storage (Step 7) ───────────────────────────
+minio:
+  enabled: false
+  image: minio/minio:latest
+  mcImage: minio/mc:latest
+  bucket: uploads
+  # Used when minio.enabled=false (external S3).
+  endpointUrl: ""
+  existingSecret: ""
+  persistence:
+    size: 10Gi
+    storageClass: ""
+
+# ── Probes ──────────────────────────────────────────────────
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
