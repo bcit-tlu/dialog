@@ -1,0 +1,52 @@
+{{- if .Values.minio.enabled }}
+{{- $fullname := include "dialog-backend.fullname" . -}}
+{{- $name := printf "%s-minio" $fullname -}}
+{{- $secretName := include "dialog-backend.minioSecretName" . -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $name }}-createbucket
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio-init
+  annotations:
+    # Run after (re)install/upgrade so the bucket exists before the app
+    # serves traffic. Idempotent — safe to re-run.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "dialog-backend.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: minio-init
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: createbucket
+          image: {{ .Values.minio.mcImage | quote }}
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: root-password
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              # Wait for MinIO to accept connections, then create the bucket.
+              until mc alias set local http://{{ $name }}:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                echo "waiting for minio..."; sleep 2;
+              done
+              mc mb --ignore-existing local/{{ .Values.minio.bucket }}
+              echo "bucket {{ .Values.minio.bucket }} ready"
+{{- end }}
