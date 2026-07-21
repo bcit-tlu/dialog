@@ -1,0 +1,21 @@
+{{- $fullname := include "dialog-backend.fullname" . -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-config
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+data:
+  # LLM provider selection and gateway location.
+  LLM_PROVIDER: {{ .Values.llm.provider | quote }}
+  LLM_GATEWAY_URL: {{ .Values.llm.gatewayUrl | default (printf "http://%s-gateway:%d" $fullname (.Values.gateway.port | int)) | quote }}
+  # Ollama (non-secret) settings.
+  OLLAMA_BASE_URL: {{ .Values.llm.ollama.baseUrl | quote }}
+  # Azure OpenAI (non-secret) settings — used when LLM_PROVIDER=azure.
+  AZURE_OPENAI_ENDPOINT: {{ .Values.llm.azure.endpoint | quote }}
+  AZURE_OPENAI_API_VERSION: {{ .Values.llm.azure.apiVersion | quote }}
+  AZURE_OPENAI_DEPLOYMENT: {{ .Values.llm.azure.deployment | quote }}
+  AZURE_OPENAI_EMBEDDING_DEPLOYMENT: {{ .Values.llm.azure.embeddingDeployment | quote }}
+  # Object storage (non-secret) settings.
+  S3_ENDPOINT_URL: {{ include "dialog-backend.s3EndpointUrl" . | quote }}
+  S3_BUCKET: {{ .Values.minio.bucket | quote }}

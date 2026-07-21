@@ -19,19 +19,23 @@ service:
 
 # ── LLM provider & gateway (Step 8) ─────────────────────────
 # provider: "ollama" (now), "azure" (later), "mock" (testing).
-# Credentials are injected only into the gateway pod.
+# Credentials are injected into the worker and gateway pods (the worker runs
+# the graph and calls the LLM provider directly today). See plans/step-08.
 llm:
   provider: ollama
   gatewayUrl: ""            # defaults to the in-cluster gateway service
   ollama:
     baseUrl: "https://ollama.com"
+    apiKey: ""              # -> Secret key `ollama-api-key` / env OLLAMA_API_KEY
   azure:
     endpoint: ""
     apiVersion: "2024-06-01"
     deployment: ""
     embeddingDeployment: ""
-  # Name of a pre-existing Secret holding LLM credentials. When set, the
-  # chart references it instead of creating its own (Vault-ready).
+    apiKey: ""              # -> Secret key `azure-openai-api-key` / env AZURE_OPENAI_API_KEY
+  # Name of a pre-existing Secret holding LLM credentials (keys:
+  # ollama-api-key, azure-openai-api-key). When set, the chart references it
+  # instead of creating its own (Vault-ready).
   existingSecret: ""
 
 # ── LLM gateway deployment (Step 9) ─────────────────────────
