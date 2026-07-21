@@ -48,3 +48,23 @@ from its Service; otherwise fall back to the externally-provided redis.url.
 {{- .Values.redis.url -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Name of the Secret holding MinIO/S3 root credentials (keys: root-user,
+root-password). Prefers an existing Secret when provided.
+*/}}
+{{- define "dialog-backend.minioSecretName" -}}
+{{- .Values.minio.existingSecret | default (printf "%s-minio" (include "dialog-backend.fullname" .)) -}}
+{{- end -}}
+
+{{/*
+S3 endpoint URL. Uses the in-cluster MinIO Service when enabled, otherwise
+the externally-provided endpoint.
+*/}}
+{{- define "dialog-backend.s3EndpointUrl" -}}
+{{- if .Values.minio.enabled -}}
+{{- printf "http://%s-minio:9000" (include "dialog-backend.fullname" .) -}}
+{{- else -}}
+{{- .Values.minio.endpointUrl -}}
+{{- end -}}
+{{- end -}}

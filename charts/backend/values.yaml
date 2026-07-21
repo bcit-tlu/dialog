@@ -99,9 +99,17 @@ minio:
   image: minio/minio:latest
   mcImage: minio/mc:latest
   bucket: uploads
+  # Root credentials for the in-cluster MinIO. Also used by the backend as
+  # its S3 access/secret keys. Move these to a Secret / Vault for production
+  # (see minio.existingSecret).
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+  # Name of a pre-existing Secret with keys `root-user` and `root-password`.
+  # When set, the chart references it instead of creating its own.
+  existingSecret: ""
   # Used when minio.enabled=false (external S3).
   endpointUrl: ""
-  existingSecret: ""
   persistence:
     size: 10Gi
     storageClass: ""

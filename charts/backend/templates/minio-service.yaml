@@ -1,0 +1,23 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "dialog-backend.fullname" . }}-minio
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: s3
+      protocol: TCP
+      name: s3
+    - port: 9001
+      targetPort: console
+      protocol: TCP
+      name: console
+  selector:
+    {{- include "dialog-backend.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+{{- end }}
