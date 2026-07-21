@@ -1,0 +1,37 @@
+{{- if and .Values.worker.enabled .Values.worker.autoscaling.enabled }}
+{{- $hpa := .Values.worker.autoscaling -}}
+# CPU/memory HPA for the worker. Requires metrics-server in the cluster.
+# For queue-depth-aware scaling (scale on Redis backlog), KEDA is the
+# production-grade alternative — see plans/step-09.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "dialog-backend.fullname" . }}-worker
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "dialog-backend.fullname" . }}-worker
+  minReplicas: {{ $hpa.minReplicas }}
+  maxReplicas: {{ $hpa.maxReplicas }}
+  metrics:
+    {{- with $hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+    {{- with $hpa.targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+{{- end }}

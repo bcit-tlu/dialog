@@ -76,3 +76,49 @@ the externally-provided endpoint.
 {{- .Values.minio.endpointUrl -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Core infra env shared by the api and worker roles: DB, Redis, and S3
+credentials. DATABASE_URL comes from the CNPG Secret when Postgres is
+in-cluster, otherwise from the external postgres.uri value.
+*/}}
+{{- define "dialog-backend.coreEnv" -}}
+- name: DATABASE_URL
+{{- if .Values.postgres.enabled }}
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "dialog-backend.fullname" . }}-db
+      key: uri
+{{- else }}
+  value: {{ .Values.postgres.uri | quote }}
+{{- end }}
+- name: REDIS_URL
+  value: {{ include "dialog-backend.redisUrl" . | quote }}
+- name: S3_ACCESS_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "dialog-backend.minioSecretName" . }}
+      key: root-user
+- name: S3_SECRET_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "dialog-backend.minioSecretName" . }}
+      key: root-password
+{{- end -}}
+
+{{/*
+LLM credential env for the roles that call the provider directly.
+Option A (see plans/step-08): mounted on the worker and gateway, NOT the api.
+*/}}
+{{- define "dialog-backend.llmCredsEnv" -}}
+- name: OLLAMA_API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "dialog-backend.llmSecretName" . }}
+      key: ollama-api-key
+- name: AZURE_OPENAI_API_KEY
+  valueFrom:
+    secretKeyRef:
+      name: {{ include "dialog-backend.llmSecretName" . }}
+      key: azure-openai-api-key
+{{- end -}}

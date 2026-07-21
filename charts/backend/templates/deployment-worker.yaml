@@ -1,0 +1,53 @@
+{{- if .Values.worker.enabled }}
+{{- $fullname := include "dialog-backend.fullname" . -}}
+{{- /* Fail-fast: the worker consumes jobs from Redis, so a Redis endpoint must exist. */ -}}
+{{- if and (not .Values.redis.enabled) (not .Values.redis.url) }}
+{{- fail "worker.enabled=true requires either redis.enabled=true or an external redis.url" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-worker
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "dialog-backend.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "dialog-backend.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      containers:
+        - name: worker
+          image: {{ include "dialog-backend.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["uv", "run", "python", "main.py", "worker"]
+          envFrom:
+            - configMapRef:
+                name: {{ $fullname }}-config
+          env:
+            {{- include "dialog-backend.coreEnv" . | nindent 12 }}
+            {{- include "dialog-backend.llmCredsEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
