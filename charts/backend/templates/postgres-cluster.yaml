@@ -41,29 +41,29 @@ spec:
   bootstrap:
     # Schema is managed by Alembic (the api Deployment's `migrate`
     # initContainer runs `alembic upgrade head` on every rollout — see
-    # Step 9). CNPG only creates the empty database + owner role, enables
-    # the pgvector extension, and grants schema privileges.
+    # Step 9). CNPG only creates the empty database + owner role and grants
+    # schema privileges; the pgvector extension is enabled declaratively via
+    # the Database resource below.
     initdb:
       database: {{ $auth.database }}
       owner: {{ $auth.username }}
       secret:
         name: {{ $fullname }}-db-app
       postInitApplicationSQL:
-        - CREATE EXTENSION IF NOT EXISTS vector
         - GRANT ALL ON SCHEMA public TO {{ $auth.username | quote }}
         - ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO {{ $auth.username | quote }}
         - ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO {{ $auth.username | quote }}
 
-  {{- with .Values.postgres.pgvector.image }}
-  # pgvector via CNPG image-volume extensions (CNPG >= 1.29). The extension
-  # binary/control files are mounted from this image so `CREATE EXTENSION
-  # vector` above succeeds. On older CNPG, remove this block and instead use
-  # an operand image that already ships postgresql-<major>-pgvector.
+  {{- if .Values.postgres.pgvector.enabled }}
+  # pgvector via CNPG image-volume extensions (CNPG >= 1.29, PostgreSQL 18+,
+  # Kubernetes 1.33+ with the ImageVolume feature). The extension's control
+  # files and shared library are mounted from this image; the Database
+  # resource below runs `CREATE EXTENSION vector`.
   postgresql:
     extensions:
       - name: pgvector
         image:
-          reference: {{ . }}
+          reference: {{ .Values.postgres.pgvector.image }}
   {{- end }}
 
   storage:
@@ -71,4 +71,23 @@ spec:
     storageClass: {{ . }}
     {{- end }}
     size: {{ .Values.postgres.persistence.size }}
+{{- if .Values.postgres.pgvector.enabled }}
+---
+# Declaratively enable pgvector in the application database. This is the
+# officially documented enablement path for image-volume extensions.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $clusterName }}-vector
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+spec:
+  name: {{ $auth.database }}
+  owner: {{ $auth.username }}
+  cluster:
+    name: {{ $clusterName }}
+  extensions:
+    - name: vector
+      version: {{ .Values.postgres.pgvector.version | quote }}
+{{- end }}
 {{- end }}

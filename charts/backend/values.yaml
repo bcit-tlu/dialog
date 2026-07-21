@@ -53,19 +53,31 @@ worker:
     targetMemoryUtilizationPercentage: 80
 
 # ── PostgreSQL via CloudNative-PG (Step 5) ──────────────────
+# pgvector is loaded via CNPG image-volume extensions, which REQUIRE:
+#   - PostgreSQL 18+ (extension_control_path GUC, introduced in PG 18)
+#   - Kubernetes 1.33+ with the ImageVolume feature enabled
+#   - CloudNative-PG operator 1.29+
+# On older clusters, set pgvector.enabled=false and point cluster.image at a
+# custom operand image that already bundles postgresql-<major>-pgvector,
+# then add `CREATE EXTENSION vector` to a postInitTemplateSQL of your own.
 postgres:
   enabled: false
   # Used when postgres.enabled=false (external DB).
   uri: "postgresql://dialog:dialog@localhost:5432/dialog"
   cluster:
     instances: 1
-    image: ghcr.io/cloudnative-pg/postgresql:16-minimal-trixie
+    image: ghcr.io/cloudnative-pg/postgresql:18-minimal-trixie
   auth:
     database: dialog
     username: dialog
     password: dialog
   pgvector:
-    image: ghcr.io/cloudnative-pg/pgvector:0.8.2-16-trixie
+    enabled: true
+    # Extension image mounted as a CNPG image volume (must match the
+    # operand's PG major version).
+    image: ghcr.io/cloudnative-pg/pgvector:0.8.5-18-trixie
+    # Extension version installed via the CNPG Database resource.
+    version: "0.8.5"
   persistence:
     storageClass: ""
     size: 5Gi
