@@ -58,6 +58,14 @@ root-password). Prefers an existing Secret when provided.
 {{- end -}}
 
 {{/*
+Name of the Secret holding LLM credentials (keys: ollama-api-key,
+azure-openai-api-key). Prefers an existing Secret when provided.
+*/}}
+{{- define "dialog-backend.llmSecretName" -}}
+{{- .Values.llm.existingSecret | default (printf "%s-llm" (include "dialog-backend.fullname" .)) -}}
+{{- end -}}
+
+{{/*
 S3 endpoint URL. Uses the in-cluster MinIO Service when enabled, otherwise
 the externally-provided endpoint.
 */}}
