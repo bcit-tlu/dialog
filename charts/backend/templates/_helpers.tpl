@@ -36,3 +36,15 @@ selected by the container command in each Deployment.
 {{- define "dialog-backend.image" -}}
 {{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) -}}
 {{- end -}}
+
+{{/*
+Redis connection URL. When the in-cluster Redis is enabled, build the URL
+from its Service; otherwise fall back to the externally-provided redis.url.
+*/}}
+{{- define "dialog-backend.redisUrl" -}}
+{{- if .Values.redis.enabled -}}
+{{- printf "redis://%s-redis:6379/0" (include "dialog-backend.fullname" .) -}}
+{{- else -}}
+{{- .Values.redis.url -}}
+{{- end -}}
+{{- end -}}
