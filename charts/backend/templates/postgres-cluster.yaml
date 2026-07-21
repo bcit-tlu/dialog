@@ -1,0 +1,93 @@
+{{- if .Values.postgres.enabled }}
+{{- $fullname := include "dialog-backend.fullname" . -}}
+{{- $clusterName := printf "%s-db" $fullname -}}
+{{- $auth := .Values.postgres.auth -}}
+---
+# Owner-role credentials consumed by CNPG's initdb bootstrap.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $fullname }}-db-app
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+type: kubernetes.io/basic-auth
+stringData:
+  username: {{ $auth.username | quote }}
+  password: {{ $auth.password | quote }}
+---
+# Connection URI the backend consumes as DATABASE_URL. Points at the CNPG
+# read-write service (<cluster>-rw). Kept at a stable name so Step 9's
+# workloads can reference it regardless of the CNPG-generated app secret.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $fullname }}-db
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  uri: {{ printf "postgresql://%s:%s@%s-rw:5432/%s" $auth.username $auth.password $clusterName $auth.database | quote }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $clusterName }}
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+spec:
+  instances: {{ .Values.postgres.cluster.instances }}
+  imageName: {{ .Values.postgres.cluster.image }}
+
+  bootstrap:
+    # Schema is managed by Alembic (the api Deployment's `migrate`
+    # initContainer runs `alembic upgrade head` on every rollout — see
+    # Step 9). CNPG only creates the empty database + owner role and grants
+    # schema privileges; the pgvector extension is enabled declaratively via
+    # the Database resource below.
+    initdb:
+      database: {{ $auth.database }}
+      owner: {{ $auth.username }}
+      secret:
+        name: {{ $fullname }}-db-app
+      postInitApplicationSQL:
+        - GRANT ALL ON SCHEMA public TO {{ $auth.username | quote }}
+        - ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO {{ $auth.username | quote }}
+        - ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO {{ $auth.username | quote }}
+
+  {{- if .Values.postgres.pgvector.enabled }}
+  # pgvector via CNPG image-volume extensions (CNPG >= 1.29, PostgreSQL 18+,
+  # Kubernetes 1.33+ with the ImageVolume feature). The extension's control
+  # files and shared library are mounted from this image; the Database
+  # resource below runs `CREATE EXTENSION vector`.
+  postgresql:
+    extensions:
+      - name: pgvector
+        image:
+          reference: {{ .Values.postgres.pgvector.image }}
+  {{- end }}
+
+  storage:
+    {{- with .Values.postgres.persistence.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+    size: {{ .Values.postgres.persistence.size }}
+{{- if .Values.postgres.pgvector.enabled }}
+---
+# Declaratively enable pgvector in the application database. This is the
+# officially documented enablement path for image-volume extensions.
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $clusterName }}-vector
+  labels:
+    {{- include "dialog-backend.labels" . | nindent 4 }}
+spec:
+  name: {{ $auth.database }}
+  owner: {{ $auth.username }}
+  cluster:
+    name: {{ $clusterName }}
+  extensions:
+    - name: vector
+      version: {{ .Values.postgres.pgvector.version | quote }}
+{{- end }}
+{{- end }}
